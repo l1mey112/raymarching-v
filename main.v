@@ -232,10 +232,11 @@ fn frame(user_data voidptr) {
 	app.mouse_dx = 0.0
 	app.mouse_dy = 0.0
 
-	app.cposition += vec4(app.cmovement.e[0] * dt,app.cmovement.e[1] * dt,app.cmovement.e[2] * dt,0)
-
 	app.cmatrix = rotatem4(app.crotation)
+	app.cposition += m4.mul_vec(app.cmatrix.inverse(),vec4(app.cmovement.e[0] * dt,app.cmovement.e[1] * dt,app.cmovement.e[2] * dt,0))
 	app.cmatrix = app.cmatrix.translate(app.cposition)
+
+	unsafe {
 
 	mut tmp_fs_params := [
 		f32(ws.width),
@@ -248,12 +249,15 @@ fn frame(user_data voidptr) {
 		0,0,0,
 		app.cmatrix.e[0],app.cmatrix.e[1],app.cmatrix.e[2],app.cmatrix.e[3],app.cmatrix.e[4],app.cmatrix.e[5],app.cmatrix.e[6],app.cmatrix.e[7],app.cmatrix.e[8],app.cmatrix.e[9],app.cmatrix.e[10],app.cmatrix.e[11],app.cmatrix.e[12],app.cmatrix.e[13],app.cmatrix.e[14],app.cmatrix.e[15]
 	]! // for padding, check SOKOL_SHDC_ALIGN
+	
 
 	fs_uniforms_range := gfx.Range{
-		ptr: unsafe { &tmp_fs_params }
+		ptr: &tmp_fs_params
 		size: usize(sizeof(tmp_fs_params))
 	}
 	gfx.apply_uniforms(.fs, C.SLOT_fs_params, &fs_uniforms_range)
+
+	}
 
 	gfx.draw(0, 3, 1)
 

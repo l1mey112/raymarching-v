@@ -7,4 +7,9 @@ all: $(VFILES) march.h
 
 march.h: march.glsl
 	clear
-	v shader . 
+	v shader march.glsl
+
+.PHONY: prod
+prod: $(VFILES) march.h
+	clear
+	v -g -prod run .

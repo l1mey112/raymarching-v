@@ -49,177 +49,26 @@ float smin(float a, float b, float k) {
     return mix(b, a, h) - k * h * (1.0 - h);
 }
 
-/* float de(vec3 p) {
-    const float width=.22;
-    const float scale=4.;
-    float t=0.2;
-    float dotp=dot(p,p);
-    p.x+=sin(t*40.)*.007;
-    p=p/dotp*scale;
-    p=sin(p+vec3(sin(1.+t)*2.,-t,-t*2.));
-    float d=length(p.yz)-width;
-    d=min(d,length(p.xz)-width);
-    d=min(d,length(p.xy)-width);
-    d=min(d,length(p*p*p)-width*.3);
-    return d*dotp/scale;
-  } */
+// @include SDFs/tubes.glsl
+// @include SDFs/columns.glsl
+// @include SDFs/cage.glsl
+// @include SDFs/mandelbulb.glsl
 
-/* float de(vec3 p){
-    p.xz=fract(p.xz)-.5;
-    float k=1.;
-    float s=0.;
-    for(int i=0;i++<9;)
-      s=2./clamp(dot(p,p),.1,1.),
-      p=abs(p)*s-vec3(.5,3,.5),
-      k*=s;
-    return length(p)/k-.001;
-  } */
-
-float de( vec3 p ){
-    p=abs(p)-1.2;
-    if(p.x < p.z)p.xz=p.zx;
-    if(p.y < p.z)p.yz=p.zy;
-    if(p.x < p.y)p.xy=p.yx;
-    float s=1.;
-    for(int i=0;i<6;i++){
-      p=abs(p);
-      float r=2./clamp(dot(p,p),.1,1.);
-      s*=r; p*=r; p-=vec3(.6,.6,3.5);
-    }
-    float a=1.5;
-    p-=clamp(p,-a,a);
-    return length(p)/s;
-  }
-
-vec3 hsv2rgb(const in vec3 c)
-{
-    const vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+float de(vec3 p){
+    #define R(a)a=vec2(a.x+a.y,a.x-a.y)*.7
+    #define G(a,n)R(a);a=abs(a)-n;R(a)
+      p=fract(p)-.5;
+      G(p.xz,.3);
+      G(p.zy,.1);
+      G(p.yz,.15);
+      return .6*length(p.xy)-.01;
+    #undef R
+    #undef G
 }
-
-#define user_itercount int(fInter)
-
-vec3 mandel_iq_col(in vec3 p)
-{
-	vec3 zz = p;
-    float m = dot(zz,zz);
-
-    vec4 trap = vec4(abs(zz.xyz),m);
-	float dz = 1.0;
-    
-    
-	for( int i=0; i<user_itercount; i++ )
-    {
-		if( m > 4.0 ) break;
-#if 1
-        float m2 = m*m;
-        float m4 = m2*m2;
-		dz = 8.0*sqrt(m4*m2*m)*dz + 1.0;
-
-        float x = zz.x; float x2 = x*x; float x4 = x2*x2;
-        float y = zz.y; float y2 = y*y; float y4 = y2*y2;
-        float z = zz.z; float z2 = z*z; float z4 = z2*z2;
-
-        float k3 = x2 + z2;
-        float k2 = inversesqrt( k3*k3*k3*k3*k3*k3*k3 );
-        float k1 = x4 + y4 + z4 - 6.0*y2*z2 - 6.0*x2*y2 + 2.0*z2*x2;
-        float k4 = x2 - y2 + z2;
-
-        zz.x = p.x +  64.0*x*y*z*(x2-z2)*k4*(x4-6.0*x2*z2+z4)*k1*k2;
-        zz.y = p.y + -16.0*y2*k3*k4*k4 + k1*k1;
-        zz.z = p.z +  -8.0*y*k4*(x4*x4 - 28.0*x4*x2*z2 + 70.0*x4*z4 - 28.0*x2*z2*z4 + z4*z4)*k1*k2;
-#else
-		dz = 8.0*pow(m,3.5)*dz + 1.0;
-        
-        float r = length(zz);
-        float b = 8.0*acos( clamp(zz.y/r, -1.0, 1.0));
-        float a = 8.0*atan( zz.x, zz.z );
-        zz = p + pow(r,8.0) * vec3( sin(b)*sin(a), cos(b), sin(b)*cos(a) );
-#endif        
-        
-        trap = min( trap, vec4(abs(zz.xyz),m) );
-        m = dot(zz,zz);
-    }
-    //trap.x = m;
-	vec3 col;
-	vec3 basecol = hsv2rgb(vec3(length(p)*5, 0.3,0.8));
-	col = basecol;
-	col = mix( col, vec3(0.7,0.2,0.2), 2*trap.w );
-	col = mix( col, vec3(1.0,0.5,0.2), sqrt(trap.y) );
-	col = mix( col, vec3(1.0,1.5,1.0)*basecol, trap.z );
-	col = mix( col, vec3(1.0,1.0,1.0), sqrt(trap.x) );
-	//col = mix( col, basecol , sqrt(trap.x));
-    return col;
-}
-
-vec3 color(in vec3 p, in vec3 v)
-{
-	if(p.z < -1 || length(p) > 4) return vec3(0.8);
-	return mandel_iq_col(p.xzy);
-}
-
-float mandel_iq( in vec3 p )
-{
-    vec3 zz = p;
-    float m = dot(zz,zz);
-
-	float dz = 1.0;
-    
-    
-	for( int i=0; i< user_itercount; i++ )
-    {
-	if( m > 4.0 )
-            break;
-#if 1
-        float m2 = m*m;
-        float m4 = m2*m2;
-		dz = 8.0*sqrt(m4*m2*m)*dz + 1.0;
-
-        float x = zz.x; float x2 = x*x; float x4 = x2*x2;
-        float y = zz.y; float y2 = y*y; float y4 = y2*y2;
-        float z = zz.z; float z2 = z*z; float z4 = z2*z2;
-
-        float k3 = x2 + z2;
-        float k2 = inversesqrt( k3*k3*k3*k3*k3*k3*k3 );
-        float k1 = x4 + y4 + z4 - 6.0*y2*z2 - 6.0*x2*y2 + 2.0*z2*x2;
-        float k4 = x2 - y2 + z2;
-
-        zz.x = p.x +  64.0*x*y*z*(x2-z2)*k4*(x4-6.0*x2*z2+z4)*k1*k2;
-        zz.y = p.y + -16.0*y2*k3*k4*k4 + k1*k1;
-        zz.z = p.z +  -8.0*y*k4*(x4*x4 - 28.0*x4*x2*z2 + 70.0*x4*z4 - 28.0*x2*z2*z4 + z4*z4)*k1*k2;
-#else
-		dz = 8.0*pow(m,3.5)*dz + 1.0;
-        
-        float r = length(zz);
-        float b = 8.0*acos( clamp(zz.y/r, -1.0, 1.0));
-        float a = 8.0*atan( zz.x, zz.z );
-        zz = p + pow(r,8.0) * vec3( sin(b)*sin(a), cos(b), sin(b)*cos(a) );
-#endif        
-
-        m = dot(zz,zz);
-    }
-
-    return 0.25*log(m)*sqrt(m)/dz;
-}
-
-/* float de( in vec3 p)
-{
-	return mandel_iq(p.xzy);
-}  */
 
 float scene(vec3 p){
     return de(p);
-    /* return smin(
-        sphereSDF(p, vec3(0,sin(iTime * 3),10),1),
-        sphereSDF(p, vec3(3,0,10),2),
-        1
-    ); */
-    /* return smin(
-        de(p),
-        sphereSDF(p,vec3(0,0,sin(iTime)*3)*1.2,0.02),
-        1.0
-    ); */
+    // return sphereSDF(p, vec3(0,0,1),0.25);
 }
 
 vec3 calcNormal(vec3 pos){
@@ -318,8 +167,8 @@ vec3 march(vec2 fragCoord){
     const float fl = cFocal; // focal length (fov)
     vec3 rd = (cMatrix * vec4(normalize( vec3(uv,fl) ),0)).xyz;
 
-    const float near = 0.000001;
-    const float far  = 10000;
+    const float near = 0.00001;
+    const float far  = 1000;
 
     float ray_distance = 0.0;
 
@@ -336,7 +185,7 @@ vec3 march(vec2 fragCoord){
         vec4(0.6,0.6,0.6,1.0)
     };
 
-    const int max_march = 1024;
+    const int max_march = 256;
     for(int i = 0; i < max_march; i++){
         vec3 p = ro + rd * ray_distance;
         float min_distance = scene(p);
