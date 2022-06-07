@@ -44,7 +44,9 @@ mut:
 
 	cposition Vec4
 	crotation Vec4
-	cmovement Vec4
+	cvelocity Vec4
+	keys [4]bool
+	// WASD
 
 	cfocal f32 = 1.5
 
@@ -75,84 +77,37 @@ fn (mut a App) run() {
 }
 
 fn event(ev &sapp.Event, mut app App) {
-	/* if ev.@type == .mouse_move {
-		
-	} */
-	/* if ev.@type == .mouse_up || ev.@type == .mouse_down {
-		if ev.mouse_button == .left {
-			is_pressed := ev.@type == .mouse_down
-			if is_pressed {
-				app.ps.explode(ev.mouse_x, ev.mouse_y)
-			}
-		}
-	} */
+	sapp.lock_mouse(true)
 
 	if ev.@type == .mouse_move {
-		app.mouse_dx = ev.mouse_dx
-		app.mouse_dy = ev.mouse_dy
-		println(app.cmatrix)
+		app.mouse_dx += ev.mouse_dx
+		app.mouse_dy += ev.mouse_dy
 		return
 	}
-
-	sapp.lock_mouse(true)
 	
-	match ev.key_code {
-		.w {
-			if ev.@type == .key_down {
-				app.cmovement.e[2] = 1.0
-			} else if ev.@type == .key_up {
-				app.cmovement.e[2] = 0.0
-			}
-		}
-		.s {
-			if ev.@type == .key_down {
-				app.cmovement.e[2] = -1.0
-			} else if ev.@type == .key_up {
-				app.cmovement.e[2] = 0.0
-			}
-		}
-		.a {
-			if ev.@type == .key_down {
-				app.cmovement.e[0] = -1.0
-			} else if ev.@type == .key_up {
-				app.cmovement.e[0] = 0.0
-			}
-		}
-		.d {
-			if ev.@type == .key_down {
-				app.cmovement.e[0] = 1.0
-			} else if ev.@type == .key_up {
-				app.cmovement.e[0] = 0.0
-			}
-		}
-		.q {
-			if ev.@type == .key_down {
-				app.cfocal += 0.02
-			}
-		}
-		.e {
-			if ev.@type == .key_down {
-				app.cfocal -= 0.02
-			}
-		}
-		.z {
-			if ev.@type == .key_down {
-				app.finter += 1
-			}
-		}
-		.c {
-			if ev.@type == .key_down {
-				app.finter -= 1
-			}
-		}
-		else {}
-	}
+	if ev.@type == .key_down {
+		match ev.key_code {
+			.w { app.keys[0] = true }
+			.a { app.keys[1] = true }
+			.s { app.keys[2] = true }
+			.d { app.keys[3] = true }
 
-	/* if ev.@type == .key_up || ev.@type == .key_down {
-		if ev.key_code == .w {
-			app.cmovement[0] = 1.0
+			.q { app.cfocal += 0.02 }
+			.e { app.cfocal -= 0.02 }
+			.z { app.finter += 1    }
+			.c { app.finter -= 1    }
+
+			else {return}
 		}
-	} */
+	} else if ev.@type == .key_up {
+		match ev.key_code {
+			.w { app.keys[0] = false }
+			.a { app.keys[1] = false }
+			.s { app.keys[2] = false }
+			.d { app.keys[3] = false }
+			else {return}
+		}
+	}
 }
 
 fn init(user_data voidptr) {
@@ -208,35 +163,39 @@ fn vec4(x f32, y f32, z f32, w f32) m4.Vec4 {
 fn frame(user_data voidptr) {
 	mut app := &App(user_data)
 	mut static before_time := f32(0.0)
-
+	
 	gfx.begin_default_pass(&app.pass_action, sapp.width(), sapp.height())
 
 	gfx.apply_pipeline(app.shader_pipeline)
 	gfx.apply_bindings(&app.bind)
 
 	time_ticks := f32(time.ticks() - app.ticks) / 1000
-	dt := time_ticks - before_time
+	dt := (time_ticks - before_time) 
+	// println(time_ticks - before_time) <-- ms
 	before_time = time_ticks
-	// println(hello/time_ticks)
 
 	ws := gg.window_size_real_pixels()
-	ratio := f32(ws.width ) / ws.height
-	// mut ratiox := f32(0) 
-	// mut ratioy := f32(0)
-	// if ws.width > ws.height {ratiox = ratio ratioy = 1} else {ratiox = ratio ratioy = 1}
+	ratio := f32(ws.width) / ws.height
 
-	//app.cposition += vec4(app.cmovement.e[0] * dt,app.cmovement.e[1] * dt,app.cmovement.e[2] * dt,0)
+	forward := f32(app.keys[0]) - f32(app.keys[2])
+	side := f32(app.keys[3]) - f32(app.keys[1])
 	
-	app.crotation.e[0] += app.mouse_dy * 0.01
-	app.crotation.e[1] += app.mouse_dx * 0.01
+	speed := f32(0.17)
+	app.cvelocity += vec4(side,0.0,forward,0.0).normalize().mul_scalar(speed)
+
+	app.crotation.e[0] += app.mouse_dy * 0.1 * dt
+	app.crotation.e[1] += app.mouse_dx * 0.1 * dt
 	app.mouse_dx = 0.0
 	app.mouse_dy = 0.0
+	// flush mouse movement
 
 	app.cmatrix = rotatem4(app.crotation)
-	app.cposition += m4.mul_vec(app.cmatrix.inverse(),vec4(app.cmovement.e[0] * dt,app.cmovement.e[1] * dt,app.cmovement.e[2] * dt,0))
+	app.cposition += m4.mul_vec(app.cmatrix.inverse(),app.cvelocity.mul_scalar(dt))
 	app.cmatrix = app.cmatrix.translate(app.cposition)
 
-	unsafe {
+	app.cvelocity = app.cvelocity.mul_scalar(0.9)
+
+unsafe {
 
 	mut tmp_fs_params := [
 		f32(ws.width),
@@ -249,7 +208,6 @@ fn frame(user_data voidptr) {
 		0,0,0,
 		app.cmatrix.e[0],app.cmatrix.e[1],app.cmatrix.e[2],app.cmatrix.e[3],app.cmatrix.e[4],app.cmatrix.e[5],app.cmatrix.e[6],app.cmatrix.e[7],app.cmatrix.e[8],app.cmatrix.e[9],app.cmatrix.e[10],app.cmatrix.e[11],app.cmatrix.e[12],app.cmatrix.e[13],app.cmatrix.e[14],app.cmatrix.e[15]
 	]! // for padding, check SOKOL_SHDC_ALIGN
-	
 
 	fs_uniforms_range := gfx.Range{
 		ptr: &tmp_fs_params
@@ -257,7 +215,7 @@ fn frame(user_data voidptr) {
 	}
 	gfx.apply_uniforms(.fs, C.SLOT_fs_params, &fs_uniforms_range)
 
-	}
+}
 
 	gfx.draw(0, 3, 1)
 
