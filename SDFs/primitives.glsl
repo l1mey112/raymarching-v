@@ -43,3 +43,9 @@ float opDisplace( in float d1, in vec3 p ){
     float d2 = sin(dt*p.x)*sin(dt*p.y)*sin(dt*p.z)*dd;
     return d1+d2;
 }
+
+float boxSDF( vec3 p, vec3 b )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}

@@ -50,7 +50,7 @@ mut:
 
 	cfocal f32 = 1.5
 
-	finter f32 = 0.0
+	finter f32 = 1.0
 
 	mouse_dx f32
 	mouse_dy f32
@@ -96,8 +96,8 @@ fn event(ev &sapp.Event, mut app App) {
 
 			.q { app.cfocal += 0.02 }
 			.e { app.cfocal -= 0.02 }
-			.z { app.finter += 1    }
-			.c { app.finter -= 1    }
+			.z { if app.finter != 0 { app.finter -= 1} }
+			.c { app.finter += 1    }
 
 			else {return}
 		}
@@ -182,11 +182,11 @@ fn frame(user_data voidptr) {
 	ratio := f32(ws.width) / ws.height
 
 	forward := f32(app.keys[0]) - f32(app.keys[2])
-	side := f32(app.keys[3]) - f32(app.keys[1])
-	up := f32(app.keys[4]) - f32(app.keys[5])
+	side    := f32(app.keys[3]) - f32(app.keys[1])
+	up      := f32(app.keys[4]) - f32(app.keys[5])
 	
 	speed := f32(0.17)
-
+	// m4.mul_vec(app.cmatrix.inverse(),app.cvelocity.mul_scalar(dt))
 	app.crotation.e[0] += app.mouse_dy * 0.1 * dt
 	app.crotation.e[1] += app.mouse_dx * 0.1 * dt
 	app.mouse_dx = 0.0
@@ -194,10 +194,11 @@ fn frame(user_data voidptr) {
 	// flush mouse movement
 
 	app.cmatrix = rotatem4(app.crotation)
-	app.cvelocity += m4.mul_vec(app.cmatrix.inverse(),vec4(side,0.0,forward,0.0).normalize()).mul_scalar(speed).mul_scalar(dt)
-	//app.cvelocity += vec4(0.0,up,0.0,0.0).mul_scalar(speed).mul_scalar(dt)
+	app.cvelocity += (m4.mul_vec(app.cmatrix.inverse(),vec4(side,0.0,forward,0.0).normalize()) + vec4(0.0,up,0.0,0.0)).mul_scalar(speed)
+	app.cposition += app.cvelocity.mul_scalar(dt)
+	
+	//app.cposition += m4.mul_vec(app.cmatrix.inverse(),app.cvelocity.mul_scalar(dt))
 	app.cmatrix = app.cmatrix.translate(app.cposition)
-
 	app.cvelocity = app.cvelocity.mul_scalar(0.9)
 
 unsafe {

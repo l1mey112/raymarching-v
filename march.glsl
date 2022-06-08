@@ -41,11 +41,33 @@ float smin(float a, float b, float k) {
 
 @include SDFs/primitives.glsl
 
+const vec3 sunDirection = normalize(vec3(0.7,0.5,0.2));
+const vec3 sunColour = vec3(0.8,0.8,1.0);
+
+float de(vec3 p){
+    float d = boxSDF(p,vec3(1.0));
+
+   float s = 1.0;
+   for( int m=0; m<fInter; m++ )
+   {
+      vec3 a = mod( p*s, 2.0 )-1.0;
+      s *= 3.0;
+      vec3 r = abs(1.0 - 3.0*abs(a));
+
+      float da = max(r.x,r.y);
+      float db = max(r.y,r.z);
+      float dc = max(r.z,r.x);
+      float c = (min(da,min(db,dc))-1.0)/s;
+
+      d = max(d,c);
+   }
+    return d;
+}
+
 float scene(vec3 p){
-    // return de(p);
     return unionSDF(
-        boxroundSDF(opRep(p,vec3(1)),vec3(0.12,0.12,0.12),0.05),
-        opDisplace(planeSDF(p,vec3(0,1,0),2),p)
+        de(p),// sphereSDF(p,vec3(0,1,0),1), //boxroundSDF(p,vec3(0.12,0.12,0.12)*10,0.05*10), // opRep(p,vec3(1,0,1)
+        planeSDF(p,vec3(0,1,0),2) // opDisplace(planeSDF(p,vec3(0,1,0),2),p)
     );
 }
 
@@ -127,25 +149,42 @@ float calcAO(vec3 point, vec3 normal, float step_dist, float step_nbr){
     return occlusion;
 }
 
-const vec3 fogColour = vec3(0.0,0.0,0.0); // vec3(0.5,0.6,0.7);
-
-vec3 calcFog( in vec3  rgb, in float distance){
-    float fogAmount = 1.0 - exp( -distance * 0.07 );
-    return mix( rgb, fogColour, fogAmount );
+float calcShadow( in vec3 ro, in vec3 rd, float mint, float maxt, float k ){
+    float res = 1.0;
+    float ph = 1e20;
+    for( float t=mint; t<maxt; )
+    {
+        float h = scene(ro + rd*t);
+        if( h<0.001 )
+            return 0.0;
+        float y = h*h/(2.0*ph);
+        float d = sqrt(h*h-y*y);
+        res = min( res, k*d/max(0.0,t-y) );
+        ph = h;
+        t += h;
+    }
+    return res;
 }
 
-/* vec3 calcFog( in vec3  rgb,      // original color of the pixel
+const vec3 fogColour = vec3(0.0,0.0,0.0); // vec3(0.5,0.6,0.7);
+
+/* vec3 calcFog( in vec3  rgb, in float distance){
+    float fogAmount = 1.0 - exp( -distance * 0.07 );
+    return mix( rgb, fogColour, fogAmount );
+} */
+
+vec3 calcFog( in vec3  rgb,      // original color of the pixel
                in float distance, // camera to point distance
                in vec3  rayDir,   // camera to point vector
                in vec3  sunDir )  // sun light direction
 {
-    float fogAmount = 1.0 - exp( -distance*0.1 );
+    float fogAmount = 1.0 - exp( -distance*0.07 );
     float sunAmount = max( dot( rayDir, sunDir ), 0.0 );
-    vec3  fogColor  = mix( vec3(0.3,0.3,0.3), // bluish
-                           vec3(0.3,0.3,0.3), // yellowish
+    vec3  fogColor  = mix( vec3(0.3,0.3,0.4), // bluish
+                           sunColour, // yellowish
                            pow(sunAmount,8.0) );
     return mix( rgb, fogColor, fogAmount );
-} */
+}
 
 vec3 march(vec2 fragCoord){
     vec2 uv = (2.0*fragCoord-iResolution.xy)/iResolution.y * vec2(iAspect,1);
@@ -155,7 +194,7 @@ vec3 march(vec2 fragCoord){
     const float fl = cFocal; // focal length (fov)
     vec3 rd = (cMatrix * vec4(normalize( vec3(uv,fl) ),0)).xyz;
 
-    const float near = 0.00001;
+    const float near = 0.0001;
     const float far  = 1000;
 
     float ray_distance = 0.0;
@@ -169,11 +208,11 @@ vec3 march(vec2 fragCoord){
     };
 
     DirectionalRGBLight light = {
-        vec3(4,2,-1),
-        vec4(0.6,0.6,0.6,1.0)
+        sunDirection,
+        vec4(sunColour,1.0)
     };
 
-    const int max_march = 512;
+    const int max_march = 256;
     float smallest_distance = 0.0;
     for(int i = 0; i < max_march; i++){
         vec3 p = ro + rd * ray_distance;
@@ -182,7 +221,7 @@ vec3 march(vec2 fragCoord){
 
         if(min_distance < near){
             //return calcDiffuse(p,calcNormal(p),rd);
-            // return calcNormal(p);
+
             vec3 nrm = calcNormal(p);
             vec3 colour = calcPhong(
                 material,
@@ -190,9 +229,9 @@ vec3 march(vec2 fragCoord){
                 rd,
                 nrm,
                 p
-            ).rgb + pow(calcAO(p,nrm,0.015,20),100) * 0.4;
+            ).rgb * pow(calcShadow(p,sunDirection,0.01,1000,8),4) + pow(calcAO(p,nrm,0.015,20),100) * 0.4;
 
-            return calcFog(colour,ray_distance); // ,rd,normalize(vec3(4,2,-1)) // color(p,vec3(1,0,1));
+            return calcFog(colour,ray_distance,rd,sunDirection); // ,rd,normalize(vec3(4,2,-1)) // color(p,vec3(1,0,1));
 
         }else if(min_distance > far){
             break;
@@ -203,8 +242,7 @@ vec3 march(vec2 fragCoord){
     return fogColour; // vec3(smallest_distance * 1000); // fogColour; // calcFog(vec3(0),ray_distance,rd,normalize(vec3(4,2,-1))); // fogColour; //worldColour(rd);
 }
 
-vec3 fromLinear(vec3 linearRGB)
-{
+vec3 fromLinear(vec3 linearRGB){
     bvec3 cutoff = lessThan(linearRGB.rgb, vec3(0.0031308));
     vec3 higher = vec3(1.055)*pow(linearRGB.rgb, vec3(1.0/2.4)) - vec3(0.055);
     vec3 lower = linearRGB.rgb * vec3(12.92);
