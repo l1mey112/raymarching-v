@@ -45,8 +45,8 @@ mut:
 	cposition Vec4
 	crotation Vec4
 	cvelocity Vec4
-	keys [4]bool
-	// WASD
+	keys [6]bool
+	// WASD Space Shift
 
 	cfocal f32 = 1.5
 
@@ -91,6 +91,8 @@ fn event(ev &sapp.Event, mut app App) {
 			.a { app.keys[1] = true }
 			.s { app.keys[2] = true }
 			.d { app.keys[3] = true }
+			.space      { app.keys[4] = true }
+			.left_shift { app.keys[5] = true }
 
 			.q { app.cfocal += 0.02 }
 			.e { app.cfocal -= 0.02 }
@@ -105,6 +107,8 @@ fn event(ev &sapp.Event, mut app App) {
 			.a { app.keys[1] = false }
 			.s { app.keys[2] = false }
 			.d { app.keys[3] = false }
+			.space      { app.keys[4] = false }
+			.left_shift { app.keys[5] = false }
 			else {return}
 		}
 	}
@@ -179,9 +183,9 @@ fn frame(user_data voidptr) {
 
 	forward := f32(app.keys[0]) - f32(app.keys[2])
 	side := f32(app.keys[3]) - f32(app.keys[1])
+	up := f32(app.keys[4]) - f32(app.keys[5])
 	
 	speed := f32(0.17)
-	app.cvelocity += vec4(side,0.0,forward,0.0).normalize().mul_scalar(speed)
 
 	app.crotation.e[0] += app.mouse_dy * 0.1 * dt
 	app.crotation.e[1] += app.mouse_dx * 0.1 * dt
@@ -190,7 +194,8 @@ fn frame(user_data voidptr) {
 	// flush mouse movement
 
 	app.cmatrix = rotatem4(app.crotation)
-	app.cposition += m4.mul_vec(app.cmatrix.inverse(),app.cvelocity.mul_scalar(dt))
+	app.cvelocity += m4.mul_vec(app.cmatrix.inverse(),vec4(side,0.0,forward,0.0).normalize()).mul_scalar(speed).mul_scalar(dt)
+	//app.cvelocity += vec4(0.0,up,0.0,0.0).mul_scalar(speed).mul_scalar(dt)
 	app.cmatrix = app.cmatrix.translate(app.cposition)
 
 	app.cvelocity = app.cvelocity.mul_scalar(0.9)

@@ -43,7 +43,10 @@ float smin(float a, float b, float k) {
 
 float scene(vec3 p){
     // return de(p);
-    return opRep(p,vec3(1,1,1));
+    return unionSDF(
+        boxroundSDF(opRep(p,vec3(1)),vec3(0.12,0.12,0.12),0.05),
+        opDisplace(planeSDF(p,vec3(0,1,0),2),p)
+    );
 }
 
 vec3 calcNormal(vec3 pos){

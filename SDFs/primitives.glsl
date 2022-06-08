@@ -26,7 +26,20 @@ float boxroundSDF( vec3 p, vec3 b, float r ){
     return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
 }
 
-float opRep( in vec3 p, in vec3 c ){
-    vec3 q = mod(p+0.5*c,c)-0.5*c;
-    return boxroundSDF(q,vec3(0.12,0.12,0.12),0.05);
+float planeSDF( vec3 p, vec3 n, float h )
+{
+  // n must be normalized
+  return dot(p,n) + h;
+}
+
+vec3 opRep( in vec3 p, in vec3 c ){
+    return mod(p+0.5*c,c)-0.5*c;
+}
+
+float opDisplace( in float d1, in vec3 p ){
+    float dt = 2;
+    float dd = 0.2;
+
+    float d2 = sin(dt*p.x)*sin(dt*p.y)*sin(dt*p.z)*dd;
+    return d1+d2;
 }
