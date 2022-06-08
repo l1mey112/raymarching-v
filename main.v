@@ -59,7 +59,7 @@ mut:
 }
 
 fn (mut a App) run() {
-	title := 'screen space triangle'
+	title := 'Ray marching test'
 	desc := sapp.Desc{
 		width: a.width
 		height: a.height
