@@ -65,10 +65,11 @@ float de(vec3 p){
 }
 
 float scene(vec3 p){
-    return unionSDF(
+    return de(opRep(p,vec3(3,3,3)));
+    /* return unionSDF(
         de(p),// sphereSDF(p,vec3(0,1,0),1), //boxroundSDF(p,vec3(0.12,0.12,0.12)*10,0.05*10), // opRep(p,vec3(1,0,1)
         planeSDF(p,vec3(0,1,0),2) // opDisplace(planeSDF(p,vec3(0,1,0),2),p)
-    );
+    ); */
 }
 
 vec3 calcNormal(vec3 pos){
@@ -220,16 +221,15 @@ vec3 march(vec2 fragCoord){
         smallest_distance = min(smallest_distance,min_distance);
 
         if(min_distance < near){
-            //return calcDiffuse(p,calcNormal(p),rd);
-
             vec3 nrm = calcNormal(p);
+
             vec3 colour = calcPhong(
                 material,
                 light,
                 rd,
                 nrm,
                 p
-            ).rgb * pow(calcShadow(p,sunDirection,0.01,1000,8),4) + pow(calcAO(p,nrm,0.015,20),100) * 0.4;
+            ).rgb * pow(calcShadow(p,sunDirection,0.01,1000,8),4) + pow(calcAO(p,nrm,0.015,12),100) * 0.4;
 
             return calcFog(colour,ray_distance,rd,sunDirection); // ,rd,normalize(vec3(4,2,-1)) // color(p,vec3(1,0,1));
 

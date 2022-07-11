@@ -187,8 +187,8 @@ fn frame(user_data voidptr) {
 	
 	speed := f32(0.17)
 	// m4.mul_vec(app.cmatrix.inverse(),app.cvelocity.mul_scalar(dt))
-	app.crotation.e[0] += app.mouse_dy * 0.1 * dt
-	app.crotation.e[1] += app.mouse_dx * 0.1 * dt
+	app.crotation.e[0] += app.mouse_dy * 0.003 // * dt
+	app.crotation.e[1] += app.mouse_dx * 0.003 // * dt
 	app.mouse_dx = 0.0
 	app.mouse_dy = 0.0
 	// flush mouse movement

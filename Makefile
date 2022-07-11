@@ -4,7 +4,7 @@ override SFILES := $(shell find ./ -type f -name '*.glsl')
 .PHONY: all
 all: $(VFILES) march.h
 	clear
-	v -g run .
+	v -g -profile profile.txt run .
 
 march.h: $(SFILES)
 	clear
